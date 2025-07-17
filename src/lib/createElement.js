@@ -111,13 +111,7 @@ function updateAttributes($el, props) {
       return;
     }
 
-    // 5. data-* 속성
-    if (key.startsWith("data-")) {
-      $el.setAttribute(key, value);
-      return;
-    }
-
-    // 6. 일반 속성
+    // 5. 일반 속성
     if (value != null) {
       $el.setAttribute(key, value);
     }
