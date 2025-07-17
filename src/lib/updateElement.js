@@ -1,5 +1,5 @@
+import { createElement } from "./createElement";
 import { addEvent, removeEvent } from "./eventManager";
-import { createElement } from "./createElement.js";
 
 /**
  * 속성 업데이트
@@ -56,14 +56,31 @@ function updateAttributes(target, newProps, oldProps) {
 
       // 불리언 속성 처리
       if (typeof value === "boolean") {
-        if (value) {
-          target.setAttribute(key, key === "checked" || key === "selected" ? null : "");
-        } else {
-          target.removeAttribute(key);
-        }
-        // property로도 설정
-        if (key in target) {
+        if (key === "checked" || key === "selected") {
+          // JavaScript 속성만 사용
           target[key] = value;
+        } else if (key === "readOnly") {
+          // readOnly → readonly 변환
+          if (value) {
+            target.setAttribute("readonly", "");
+            target.readOnly = true;
+          } else {
+            target.removeAttribute("readonly");
+            target.readOnly = false;
+          }
+        } else {
+          // 일반 Boolean 속성 (disabled, hidden 등)
+          if (value) {
+            target.setAttribute(key, "");
+            if (key in target) {
+              target[key] = true;
+            }
+          } else {
+            target.removeAttribute(key);
+            if (key in target) {
+              target[key] = false;
+            }
+          }
         }
         return;
       }

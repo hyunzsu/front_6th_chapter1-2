@@ -1,62 +1,43 @@
-// 이벤트 위임을 위한 전역 이벤트 맵
+// 이벤트 저장소: element -> eventType -> handlers Set
 const eventMap = new Map();
 
-// 루트 요소들의 이벤트 리스너 설정 상태 추적
-const rootListeners = new Set();
+// 이미 설정된 루트 요소들
+const initializedRoots = new Set();
 
 /**
  * 루트 요소에 이벤트 위임 리스너를 설정
  */
 export function setupEventListeners(root) {
-  if (rootListeners.has(root)) {
-    return;
-  }
+  if (initializedRoots.has(root)) return;
 
-  // 모든 이벤트 타입에 대해 위임 리스너 등록
   const eventTypes = ["click", "focus", "blur", "keydown", "keyup", "mouseover", "mouseout", "change", "input"];
 
+  // 모든 이벤트 타입에 대해 위임 리스너 등록
   eventTypes.forEach((eventType) => {
     root.addEventListener(
       eventType,
-      (e) => {
-        let target = e.target;
-
-        // 이벤트 버블링을 따라 올라가면서 핸들러 찾기
-        while (target && target !== root) {
-          const targetMap = eventMap.get(target);
-          if (targetMap && targetMap.has(eventType)) {
-            const handlers = targetMap.get(eventType);
-            // 모든 핸들러 실행
-            handlers.forEach((handler) => {
-              try {
-                handler(e);
-              } catch (error) {
-                console.error(`Event handler error for ${eventType}:`, error);
-              }
-            });
-            // 이벤트 처리했으면 전파 중단
-            e.stopPropagation();
-            return;
-          }
-          target = target.parentNode;
-        }
+      (event) => {
+        handleDelegatedEvent(event, root, eventType);
       },
-      false, // capture 대신 bubble 단계에서 처리
+      false,
     );
   });
 
-  rootListeners.add(root);
+  initializedRoots.add(root);
 }
 
 /**
  * 요소에 이벤트 핸들러 등록
  */
 export function addEvent(element, eventType, handler) {
+  // element에 대한 Map이 없으면 생성
   if (!eventMap.has(element)) {
     eventMap.set(element, new Map());
   }
 
   const elementEvents = eventMap.get(element);
+
+  // eventType에 대한 Set이 없으면 생성
   if (!elementEvents.has(eventType)) {
     elementEvents.set(eventType, new Set());
   }
@@ -76,13 +57,39 @@ export function removeEvent(element, eventType, handler) {
 
   handlers.delete(handler);
 
-  // 핸들러가 없으면 이벤트 타입 제거
+  // 빈 Set/Map 정리
   if (handlers.size === 0) {
     elementEvents.delete(eventType);
   }
-
-  // 이벤트가 없으면 요소 제거
   if (elementEvents.size === 0) {
     eventMap.delete(element);
+  }
+}
+
+// 이벤트 위임 처리
+function handleDelegatedEvent(event, root, eventType) {
+  let currentTarget = event.target;
+
+  // 버블링을 따라 올라가면서 핸들러 찾기
+  while (currentTarget && currentTarget !== root) {
+    const elementEvents = eventMap.get(currentTarget);
+
+    if (elementEvents && elementEvents.has(eventType)) {
+      const handlers = elementEvents.get(eventType);
+
+      // 모든 핸들러 실행
+      handlers.forEach((handler) => {
+        try {
+          handler(event);
+        } catch (error) {
+          console.error(`이벤트 핸들러 오류 (${eventType}):`, error);
+        }
+      });
+
+      event.stopPropagation();
+      return;
+    }
+
+    currentTarget = currentTarget.parentNode;
   }
 }

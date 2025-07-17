@@ -2,19 +2,21 @@ import { addEvent } from "./eventManager";
 
 /**
  * vNode를 실제 DOM 요소로 변환
+ * @param {*} vNode - 변환할 vNode
+ * @returns {Node} 생성된 DOM 노드
  */
 export function createElement(vNode) {
-  // 1. null, undefined, boolean 처리 -> 빈 텍스트 노드
+  // 1. null, undefined, boolean -> 빈 텍스트 노드
   if (vNode == null || typeof vNode === "boolean") {
     return document.createTextNode("");
   }
 
-  // 2. 문자열, 숫자 처리 -> 텍스트 노드
+  // 2. 문자열, 숫자 -> 텍스트 노드
   if (typeof vNode === "string" || typeof vNode === "number") {
     return document.createTextNode(String(vNode));
   }
 
-  // 3. 배열 처리 -> DocumentFragment
+  // 3. 배열 -> DocumentFragment
   if (Array.isArray(vNode)) {
     const fragment = document.createDocumentFragment();
     vNode.forEach((child) => {
@@ -24,12 +26,12 @@ export function createElement(vNode) {
     return fragment;
   }
 
-  // 4. 함수 컴포넌트 처리 -> 에러 발생
+  // 4. 함수 -> 에러 발생
   if (typeof vNode.type === "function") {
     throw new Error("함수 컴포넌트는 정규화 후에 createElement를 호출해야 합니다.");
   }
 
-  // 5. HTML 요소 처리
+  // 5. vNode 객체 -> DOM 요소 생성
   const element = document.createElement(vNode.type);
 
   // 속성 설정
@@ -49,54 +51,73 @@ export function createElement(vNode) {
 }
 
 /**
- * 요소의 속성을 업데이트
+ * DOM 요소에 속성(props) 설정
+ * @param {HTMLElement} $el - 대상 DOM 요소
+ * @param {Object} props - 설정할 속성들
  */
 function updateAttributes($el, props) {
   Object.entries(props).forEach(([key, value]) => {
-    // 이벤트 핸들러 처리
+    // 1. 이벤트 핸들러
     if (key.startsWith("on") && typeof value === "function") {
       const eventType = key.slice(2).toLowerCase(); // onClick -> click
       addEvent($el, eventType, value);
       return;
     }
 
-    // className 처리
+    // 2. className
     if (key === "className") {
       if (value) {
         $el.setAttribute("class", value);
+      } else {
+        $el.removeAttribute("class");
       }
       return;
     }
 
-    // 불리언 속성 처리 (checked, disabled, selected 등)
+    // 3. style 객체
+    if (key === "style" && typeof value === "object" && value !== null) {
+      Object.assign($el.style, value);
+      return;
+    }
+
+    // 4. Boolean 속성 (checked, disabled, selected, readOnly)
     if (typeof value === "boolean") {
-      if (value) {
-        // checked와 selected는 attribute 없이 property만 설정
-        if (key === "checked" || key === "selected") {
-          $el[key] = true;
+      if (key === "checked" || key === "selected") {
+        // JavaScript 속성만 사용 (true/false 모두 처리)
+        $el[key] = value;
+      } else if (key === "readOnly") {
+        // readOnly → readonly 변환
+        if (value) {
+          $el.setAttribute("readonly", "");
+          $el.readOnly = true;
         } else {
+          $el.removeAttribute("readonly");
+          $el.readOnly = false;
+        }
+      } else {
+        // 일반 Boolean 속성 (disabled, hidden 등)
+        if (value) {
           $el.setAttribute(key, "");
           if (key in $el) {
             $el[key] = true;
           }
-        }
-      } else {
-        // false일 때는 attribute와 property 모두 제거/false 설정
-        $el.removeAttribute(key);
-        if (key in $el) {
-          $el[key] = false;
+        } else {
+          $el.removeAttribute(key);
+          if (key in $el) {
+            $el[key] = false;
+          }
         }
       }
       return;
     }
 
-    // data-* 속성 처리
+    // 5. data-* 속성
     if (key.startsWith("data-")) {
       $el.setAttribute(key, value);
       return;
     }
 
-    // 일반 속성 처리
+    // 6. 일반 속성
     if (value != null) {
       $el.setAttribute(key, value);
     }
