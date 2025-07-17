@@ -103,7 +103,12 @@ export function updateElement(parentElement, newNode, oldNode, index = 0) {
   if (!oldNode) {
     if (newNode && newNode !== "") {
       const element = createElement(newNode);
-      parentElement.appendChild(element);
+      const referenceNode = parentElement.childNodes[index];
+      if (referenceNode) {
+        parentElement.insertBefore(element, referenceNode);
+      } else {
+        parentElement.appendChild(element);
+      }
     }
     return;
   }
@@ -145,7 +150,8 @@ export function updateElement(parentElement, newNode, oldNode, index = 0) {
     const maxLength = Math.max(newChildren.length, oldChildren.length);
 
     for (let i = 0; i < maxLength; i++) {
-      updateElement(parentElement, newChildren[i], oldChildren[i], index + i);
+      // 수정: index + i 대신 i를 사용 (배열 자체가 하나의 단위)
+      updateElement(parentElement, newChildren[i], oldChildren[i], i);
     }
     return;
   }
@@ -172,9 +178,14 @@ export function updateElement(parentElement, newNode, oldNode, index = 0) {
     const oldChildren = oldNode.children || [];
     const maxLength = Math.max(newChildren.length, oldChildren.length);
 
-    // 역순으로 제거 (인덱스가 변경되지 않도록)
-    for (let i = maxLength - 1; i >= 0; i--) {
+    // 수정: 정순으로 처리하되, 제거는 역순으로
+    for (let i = 0; i < maxLength; i++) {
       updateElement(targetElement, newChildren[i], oldChildren[i], i);
+    }
+
+    // 불필요한 자식 노드 제거 (역순으로)
+    while (targetElement.childNodes.length > newChildren.length) {
+      targetElement.removeChild(targetElement.lastChild);
     }
   }
 }
