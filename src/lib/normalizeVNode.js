@@ -39,7 +39,7 @@ export function normalizeVNode(vNode) {
     return normalizeVNode(result);
   }
 
-  // 6. HTML 엘리먼트
+  // 6. HTML element
   return {
     ...vNode,
     children: (vNode.children || [])

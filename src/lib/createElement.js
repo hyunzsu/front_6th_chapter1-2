@@ -1,7 +1,7 @@
 import { addEvent } from "./eventManager";
 
 /**
- * vNode를 실제 DOM 요소로 변환
+ * vNode를 실제 DOM element로 변환
  * @param {*} vNode - 변환할 vNode
  * @returns {Node} 생성된 DOM 노드
  */
@@ -31,7 +31,7 @@ export function createElement(vNode) {
     throw new Error("함수 컴포넌트는 정규화 후에 createElement를 호출해야 합니다.");
   }
 
-  // 5. vNode 객체 -> DOM 요소 생성
+  // 5. vNode 객체 -> DOM element 생성
   const element = document.createElement(vNode.type);
 
   // 속성 설정
@@ -39,7 +39,7 @@ export function createElement(vNode) {
     updateAttributes(element, vNode.props);
   }
 
-  // 자식 요소 추가
+  // 자식 element 추가
   if (vNode.children) {
     vNode.children.forEach((child) => {
       const childElement = createElement(child);
@@ -51,8 +51,8 @@ export function createElement(vNode) {
 }
 
 /**
- * DOM 요소에 속성(props) 설정
- * @param {HTMLElement} $el - 대상 DOM 요소
+ * DOM element에 속성(props) 설정
+ * @param {HTMLElement} $el - 대상 DOM element
  * @param {Object} props - 설정할 속성들
  */
 function updateAttributes($el, props) {
