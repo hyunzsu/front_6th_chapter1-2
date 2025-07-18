@@ -2,96 +2,136 @@ import { createElement } from "./createElement";
 import { addEvent, removeEvent } from "./eventManager";
 
 /**
- * 속성 업데이트
+ * DOM element에 속성(props) 업데이트 (이전 속성과 비교)
+ * @param {HTMLElement} target - 대상 DOM element
+ * @param {Object} newProps - 새로운 속성들
+ * @param {Object} oldProps - 이전 속성들
  */
 function updateAttributes(target, newProps, oldProps) {
-  // 기존 속성들 제거/업데이트
-  if (oldProps) {
-    Object.keys(oldProps).forEach((key) => {
-      if (!(key in (newProps || {}))) {
-        // 새 props에 없는 속성 제거
-        if (key.startsWith("on") && typeof oldProps[key] === "function") {
-          const eventType = key.slice(2).toLowerCase();
-          removeEvent(target, eventType, oldProps[key]);
-        } else if (key === "className") {
-          target.removeAttribute("class");
-        } else if (typeof oldProps[key] === "boolean") {
-          target.removeAttribute(key);
-          if (key in target) {
-            target[key] = false;
-          }
-        } else {
-          target.removeAttribute(key);
-        }
-      }
-    });
+  const oldKeys = Object.keys(oldProps || {});
+  const newKeys = Object.keys(newProps || {});
+
+  // 1. 제거 단계: 이전에만 있는 속성들 제거
+  oldKeys.forEach((key) => {
+    if (!(key in (newProps || {}))) {
+      removeAttribute(target, key, oldProps[key]);
+    }
+  });
+
+  // 2. 추가/변경 단계: 새 속성들을 이전 값과 비교하여 처리
+  newKeys.forEach((key) => {
+    const oldValue = oldProps?.[key];
+    const newValue = newProps[key];
+
+    // 값이 동일하면 DOM 조작 스킵
+    if (oldValue === newValue) return;
+
+    setAttribute(target, key, newValue, oldValue);
+  });
+}
+
+/**
+ * 속성 제거 전용 헬퍼 함수
+ *
+ * @param {HTMLElement} target - 대상 DOM element
+ * @param {string} key - 제거할 속성 키
+ * @param {*} oldValue - 제거할 속성의 이전 값
+ */
+function removeAttribute(target, key, oldValue) {
+  // 1. 이벤트 핸들러 제거
+  if (key.startsWith("on") && typeof oldValue === "function") {
+    const eventType = key.slice(2).toLowerCase(); // onClick → click
+    removeEvent(target, eventType, oldValue);
+    return;
   }
 
-  // 새 속성들 추가/업데이트
-  if (newProps) {
-    Object.entries(newProps).forEach(([key, value]) => {
-      const oldValue = oldProps?.[key];
+  // 2. className 속성 제거
+  if (key === "className") {
+    target.removeAttribute("class");
+    return;
+  }
 
-      if (value === oldValue) return; // 동일하면 스킵
+  // 3. Boolean 속성 제거 (disabled, checked, hidden 등)
+  if (typeof oldValue === "boolean") {
+    target.removeAttribute(key);
+    // JavaScript 속성도 함께 false로 설정
+    if (key in target) {
+      target[key] = false;
+    }
+    return;
+  }
 
-      // 이벤트 핸들러 처리
-      if (key.startsWith("on") && typeof value === "function") {
-        const eventType = key.slice(2).toLowerCase();
-        if (oldValue) {
-          removeEvent(target, eventType, oldValue);
-        }
-        addEvent(target, eventType, value);
-        return;
+  // 4. 일반 속성 제거 (id, data-*, href 등)
+  target.removeAttribute(key);
+}
+
+/**
+ * 속성 설정 전용 헬퍼 함수
+ *
+ * @param {HTMLElement} target - 대상 DOM element
+ * @param {string} key - 설정할 속성 키
+ * @param {*} newValue - 설정할 새 값
+ * @param {*} oldValue - 이전 값 (이벤트 핸들러 교체 시 필요)
+ */
+function setAttribute(target, key, newValue, oldValue) {
+  // 1. 이벤트 핸들러 설정/교체
+  if (key.startsWith("on") && typeof newValue === "function") {
+    const eventType = key.slice(2).toLowerCase(); // onClick → click
+    // 기존 이벤트 핸들러가 있으면 먼저 제거
+    if (oldValue) {
+      removeEvent(target, eventType, oldValue);
+    }
+    // 새 이벤트 핸들러 추가
+    addEvent(target, eventType, newValue);
+    return;
+  }
+
+  // 2. className 속성 설정
+  if (key === "className") {
+    if (newValue) {
+      target.setAttribute("class", newValue);
+    } else {
+      target.removeAttribute("class");
+    }
+    return;
+  }
+
+  // 3. Boolean 속성 설정 (checked, disabled, selected, readOnly)
+  if (typeof newValue === "boolean") {
+    if (key === "checked" || key === "selected") {
+      // JavaScript 속성만 사용 (true/false 모두 처리)
+      target[key] = newValue;
+    } else if (key === "readOnly") {
+      // readOnly → readonly 변환
+      if (newValue) {
+        target.setAttribute("readonly", "");
+        target.readOnly = true;
+      } else {
+        target.removeAttribute("readonly");
+        target.readOnly = false;
       }
-
-      // className 처리
-      if (key === "className") {
-        if (value) {
-          target.setAttribute("class", value);
-        } else {
-          target.removeAttribute("class");
+    } else {
+      // 일반 Boolean 속성 (disabled, hidden 등)
+      if (newValue) {
+        target.setAttribute(key, "");
+        if (key in target) {
+          target[key] = true;
         }
-        return;
-      }
-
-      // 불리언 속성 처리
-      if (typeof value === "boolean") {
-        if (key === "checked" || key === "selected") {
-          // JavaScript 속성만 사용
-          target[key] = value;
-        } else if (key === "readOnly") {
-          // readOnly → readonly 변환
-          if (value) {
-            target.setAttribute("readonly", "");
-            target.readOnly = true;
-          } else {
-            target.removeAttribute("readonly");
-            target.readOnly = false;
-          }
-        } else {
-          // 일반 Boolean 속성 (disabled, hidden 등)
-          if (value) {
-            target.setAttribute(key, "");
-            if (key in target) {
-              target[key] = true;
-            }
-          } else {
-            target.removeAttribute(key);
-            if (key in target) {
-              target[key] = false;
-            }
-          }
-        }
-        return;
-      }
-
-      // 일반 속성 처리
-      if (value != null) {
-        target.setAttribute(key, value);
       } else {
         target.removeAttribute(key);
+        if (key in target) {
+          target[key] = false;
+        }
       }
-    });
+    }
+    return;
+  }
+
+  // 4. 일반 속성 설정 (id, data-*, href, src 등)
+  if (newValue != null) {
+    target.setAttribute(key, newValue);
+  } else {
+    target.removeAttribute(key);
   }
 }
 
