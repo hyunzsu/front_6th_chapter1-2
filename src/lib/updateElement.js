@@ -137,6 +137,10 @@ function setAttribute(target, key, newValue, oldValue) {
 
 /**
  * Virtual DOM diff 및 업데이트
+ * @param {HTMLElement} parentElement - 업데이트할 부모 DOM element
+ * @param {*} newNode - 새로운 vNode (문자열, 숫자, 객체, 배열, null/undefined 가능)
+ * @param {*} oldNode - 기존 vNode (문자열, 숫자, 객체, 배열, null/undefined 가능)
+ * @param {number} [index=0] - 부모 element 내에서의 위치 인덱스
  */
 export function updateElement(parentElement, newNode, oldNode, index = 0) {
   // 1. oldNode가 없으면 새 노드 추가
@@ -164,10 +168,9 @@ export function updateElement(parentElement, newNode, oldNode, index = 0) {
 
   // 3. 텍스트 노드 처리
   if (typeof newNode === "string" || typeof newNode === "number") {
-    const newText = String(newNode);
-    const oldText = String(oldNode);
-
-    if (newText !== oldText) {
+    // 타입 체크 후 문자열 변환
+    if (newNode !== oldNode) {
+      const newText = String(newNode);
       const targetNode = parentElement.childNodes[index];
       if (targetNode && targetNode.nodeType === Node.TEXT_NODE) {
         targetNode.textContent = newText;
@@ -211,20 +214,23 @@ export function updateElement(parentElement, newNode, oldNode, index = 0) {
   // 6. 같은 타입이면 속성만 업데이트
   const targetElement = parentElement.childNodes[index];
   if (targetElement && targetElement.nodeType === Node.ELEMENT_NODE) {
-    updateAttributes(targetElement, newNode.props, oldNode.props);
+    // 얕은 비교로 속성이 다를 때만 업데이트
+    if (newNode.props !== oldNode.props) {
+      updateAttributes(targetElement, newNode.props, oldNode.props);
+    }
 
     // 7. 자식 노드들 재귀적으로 업데이트
     const newChildren = newNode.children || [];
     const oldChildren = oldNode.children || [];
     const maxLength = Math.max(newChildren.length, oldChildren.length);
 
-    // 수정: 정순으로 처리하되, 제거는 역순으로
     for (let i = 0; i < maxLength; i++) {
       updateElement(targetElement, newChildren[i], oldChildren[i], i);
     }
 
-    // 불필요한 자식 노드 제거 (역순으로)
-    while (targetElement.childNodes.length > newChildren.length) {
+    // 불필요한 자식 노드 제거
+    const excessCount = targetElement.childNodes.length - newChildren.length;
+    for (let i = 0; i < excessCount; i++) {
       targetElement.removeChild(targetElement.lastChild);
     }
   }
