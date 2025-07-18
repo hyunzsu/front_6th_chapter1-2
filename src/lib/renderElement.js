@@ -3,22 +3,24 @@ import { createElement } from "./createElement";
 import { normalizeVNode } from "./normalizeVNode";
 import { updateElement } from "./updateElement";
 
+/**
+ * Virtual DOM을 실제 DOM에 렌더링
+ * 최초 렌더링은 createElement, 리렌더링은 updateElement 사용
+ *
+ * @param {*} vNode - 렌더링할 Virtual DOM 노드
+ * @param {HTMLElement} container - 렌더링 대상 컨테이너
+ */
 export function renderElement(vNode, container) {
   const normalizedVNode = normalizeVNode(vNode);
 
-  // 최초 렌더링 체크: container에 첫 번째 자식이 없으면 최초 렌더링
-  if (!container.firstChild) {
-    // 최초 렌더링: createElement로 DOM 생성하여 추가
+  // 최초 렌더링 vs 리렌더링 구분
+  if (!container._vNode) {
     const element = createElement(normalizedVNode);
     container.appendChild(element);
   } else {
-    // 업데이트: 기존 DOM과 새 vNode 비교하여 차분 업데이트
     updateElement(container, normalizedVNode, container._vNode, 0);
   }
 
-  // 현재 vNode를 container에 저장 (다음 업데이트 시 비교용)
   container._vNode = normalizedVNode;
-
-  // 이벤트 리스너 설정
   setupEventListeners(container);
 }
